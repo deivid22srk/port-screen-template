@@ -12,8 +12,8 @@ android {
         applicationId = "com.porttemplate.screen"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     buildTypes {
@@ -72,6 +72,9 @@ dependencies {
     // ViewModel + ciclo de vida Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+
+    // Navegação entre a tela de seleção e a tela de Configurações
+    implementation("androidx.navigation:navigation-compose:2.8.4")
 
     // DocumentFile — navegação em pastas via Storage Access Framework
     implementation("androidx.documentfile:documentfile:1.0.1")

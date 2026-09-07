@@ -7,7 +7,7 @@
  *  Este template é 100% genérico: nenhuma tela, cor, texto, partícula ou
  *  referência de arte está fixada no código da interface. Tudo o que dá
  *  identidade a um port — nome, paleta, arte de fundo, arquivos de dados
- *  esperados, partículas ambiente, textos — vem daqui.
+ *  esperados, partículas ambiente, textos, links de créditos — vem daqui.
  *
  *  COMO ADAPTAR PARA UM NOVO PORT (resumo; guia completo no README.md):
  *
@@ -19,7 +19,9 @@
  *       convertido para VectorDrawable) — ou desative com `showLogo = false`.
  *    4. Ajuste [PortBrandingConfig.expectedDataFiles] para os arquivos que
  *       o seu motor procura (ex.: "default.xex", "game.iso", "data.pak").
- *    5. Conecte a inicialização do seu motor em
+ *    5. Ajuste [PortBrandingConfig.links] com os links do portador
+ *       (YouTube, GitHub, Telegram e repositório do projeto base).
+ *    6. Conecte a inicialização do seu motor em
  *       [com.porttemplate.screen.viewmodel.DataSelectionViewModel.onStartGame].
  *
  *  NADA MAIS precisa ser tocado. Layout, animações, acessibilidade e fluxo
@@ -39,6 +41,24 @@ import androidx.compose.ui.graphics.Color
  * - [NONE]   : sem partículas (economiza bateria em aparelhos fracos).
  */
 enum class ParticleType { DUST, EMBERS, SPARKS, MIST, NONE }
+
+/**
+ * Link de crédito exibido no diálogo "Portado por ..." (botão de assinatura
+ * da tela). [iconKey] escolhe o ícone desenhado: "youtube", "github",
+ * "telegram" ou "project" (qualquer outro valor usa um ícone de link neutro).
+ */
+data class PortLink(
+    /** Nome do destino (ex.: "Canal no YouTube"). */
+    val label: String,
+    /** Linha de detalhe abaixo do nome (ex.: "@hail-games1"). */
+    val description: String,
+    /** URL aberta no navegador ao tocar. */
+    val url: String,
+    /** Chave do ícone: "youtube" | "github" | "telegram" | "project". */
+    val iconKey: String,
+    /** Cor do ícone e do fundo do selo do link. */
+    val tint: Color,
+)
 
 /**
  * Contrato completo de branding do port. Cada campo documenta o efeito exato
@@ -128,7 +148,7 @@ data class PortBrandingConfig(
     // TEXTOS DA INTERFACE (PT-BR no demo; troque para localizar o port)
     // ------------------------------------------------------------------
 
-    /** Botão primário no estado "dados não encontrados". */
+    /** Botão primário no estado "aguardando seleção"/"não encontrado". */
     val labelSelectData: String,
 
     /** Botão primário no estado "dados encontrados" (dispara o jogo). */
@@ -137,8 +157,14 @@ data class PortBrandingConfig(
     /** Botão secundário para escolher outra pasta. */
     val labelSelectFolder: String,
 
-    /** Estado de status: detecção automática em andamento. */
-    val labelSearching: String,
+    /** Estado de status: pasta escolhida/validação em andamento. */
+    val labelValidating: String,
+
+    /** Estado de status: nenhum dado selecionado ainda (estado inicial). */
+    val labelIdle: String,
+
+    /** Dica do estado inicial — explica o que o usuário deve fazer. */
+    val labelIdleHint: String,
 
     /** Estado de status: pasta/dados não encontrados. */
     val labelNotFound: String,
@@ -152,27 +178,43 @@ data class PortBrandingConfig(
     /** Linha complementar do estado pronto; %s = nome do arquivo detectado. */
     val labelFoundFile: String,
 
-    /** Texto do botão primário enquanto a pasta escolhida é validada. */
-    val labelValidating: String,
-
     /** Estado de status: permissão de leitura negada/revogada. */
     val labelPermissionError: String,
 
     // ------------------------------------------------------------------
-    // DIÁLOGO DE AJUSTES (botão de engrenagem)
+    // TELA DE CONFIGURAÇÕES DEDICADA (engrenagem navega para ela)
     // ------------------------------------------------------------------
 
-    /** Título do diálogo aberto pela engrenagem. */
+    /** Título da tela de configurações (barra superior). */
     val labelSettingsTitle: String,
 
-    /** Rótulo do toggle de partículas. */
-    val labelToggleParticles: String,
+    /** Subtítulo da tela de configurações. */
+    val labelSettingsSubtitle: String,
 
-    /** Rótulo do toggle "reduzir movimento" (força o modo acessível). */
-    val labelToggleMotion: String,
+    /** Rodapé explicativo da tela de configurações. */
+    val labelSettingsFooter: String,
 
-    /** Botão de fechar do diálogo. */
-    val labelClose: String,
+    /** Botão que apaga a pasta persistida e volta ao estado inicial. */
+    val labelClearSelection: String,
+
+    // ------------------------------------------------------------------
+    // CRÉDITOS / LINKS DO PORTADOR ("Portado por ...")
+    // ------------------------------------------------------------------
+
+    /** Rótulo do botão de assinatura (pill com coração). */
+    val portedByLabel: String,
+
+    /** Título do diálogo de créditos. */
+    val creditsTitle: String,
+
+    /** Subtítulo do diálogo de créditos. */
+    val creditsSubtitle: String,
+
+    /** Rodapé do diálogo de créditos. */
+    val creditsFooter: String,
+
+    /** Lista de links abertos pelo diálogo (YouTube, GitHub, Telegram, base). */
+    val links: List<PortLink>,
 
     // ------------------------------------------------------------------
     // ACESSIBILIDADE (contentDescription)
@@ -189,6 +231,12 @@ data class PortBrandingConfig(
 
     /** Descrição da arte de fundo (lida por leitores de tela). */
     val contentDescBackground: String,
+
+    /** Descrição do botão de voltar da tela de configurações. */
+    val contentDescBack: String,
+
+    /** Descrição do botão "Portado por ...". */
+    val contentDescCredits: String,
 )
 
 /**
@@ -238,24 +286,64 @@ object PortBranding {
         labelSelectData = "Selecionar Dados",
         labelStartGame = "Iniciar Jogo",
         labelSelectFolder = "Selecionar Pasta",
-        labelSearching = "Procurando dados do jogo…",
+        labelValidating = "Validando…",
+        labelIdle = "Nenhum dado selecionado",
+        labelIdleHint = "Toque em Selecionar Dados e escolha a pasta ou o arquivo do jogo. Nada é procurado automaticamente.",
         labelNotFound = "Dados não encontrados",
         labelNotFoundHint = "Selecione a pasta que contém %s",
         labelFound = "Dados prontos",
         labelFoundFile = "Pronto para iniciar: %s",
-        labelValidating = "Validando…",
         labelPermissionError = "Permissão negada",
 
-        // ---- Diálogo de ajustes -------------------------------------------
-        labelSettingsTitle = "Ajustes Visuais",
-        labelToggleParticles = "Partículas ambiente",
-        labelToggleMotion = "Reduzir movimento",
-        labelClose = "Fechar",
+        // ---- Tela de configurações ----------------------------------------
+        labelSettingsTitle = "Configurações",
+        labelSettingsSubtitle = "Exemplo de tela dedicada — conecte ao motor do port",
+        labelSettingsFooter = "Todas as opções são um template funcional persistido em SharedPreferences. Ligue cada parâmetro ao motor do port (veja PortSettings e o README).",
+        labelClearSelection = "Limpar seleção salva",
+
+        // ---- Créditos / links do portador ----------------------------------
+        portedByLabel = "Portado por Hailgames",
+        creditsTitle = "Hailgames",
+        creditsSubtitle = "Ports Android · template de seleção de dados",
+        creditsFooter = "Tela genérica de seleção de dados para ports Android. Personalize tudo em PortBrandingConfig.kt.",
+        links = listOf(
+            PortLink(
+                label = "Canal no YouTube",
+                description = "@hail-games1",
+                url = "https://youtube.com/@hail-games1?si=rREmvIBB6s98N-2m",
+                iconKey = "youtube",
+                tint = Color(0xFFFF5147)
+            ),
+            PortLink(
+                label = "GitHub",
+                description = "deivid22srk · todos os repositórios",
+                url = "https://github.com/deivid22srk?tab=repositories",
+                iconKey = "github",
+                tint = Color(0xFFE8EAF2)
+            ),
+            PortLink(
+                label = "Telegram",
+                description = "@hailgames2",
+                url = "https://t.me/hailgames2",
+                iconKey = "telegram",
+                tint = Color(0xFF41B3E3)
+            ),
+            PortLink(
+                label = "Projeto base deste Port",
+                description = "Repositório do projeto usado como base",
+                // TODO(port): troque pela URL do projeto base do SEU port.
+                url = "https://github.com/deivid22srk?tab=repositories",
+                iconKey = "project",
+                tint = Color(0xFFF0A44E)
+            ),
+        ),
 
         // ---- Acessibilidade ------------------------------------------------
         contentDescPlay = "Iniciar",
-        contentDescSettings = "Abrir ajustes visuais",
+        contentDescSettings = "Abrir configurações",
         contentDescFolder = "Selecionar outra pasta de dados",
         contentDescBackground = "Arte de fundo do port",
+        contentDescBack = "Voltar para a tela inicial",
+        contentDescCredits = "Abrir links do portador",
     )
 }

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,11 +46,11 @@ import com.porttemplate.screen.config.PortBranding
 import com.porttemplate.screen.viewmodel.DataPhase
 
 /**
- * Área de status com os 3 estados do ciclo de detecção (mais erro de
- * permissão). Cada estado tem ícone, cor e microanimação próprios, com
- * transição cruzada entre estados:
+ * Área de status com os estados do ciclo de dados (mais erro de permissão).
+ * Cada estado tem ícone, cor e microanimação próprios, com transição cruzada:
  *
- *   Searching  → arco duplo girando/pulsando, cor = accent do port
+ *   Idle       → lupa suave: "nenhum dado selecionado" (estado inicial, sem busca)
+ *   Validating → arco duplo girando/pulsando, cor = accent do port
  *   NotFound   → alerta vermelho suave + dica com o arquivo esperado
  *   Found      → check verde + nome do arquivo detectado em destaque
  */
@@ -68,9 +69,22 @@ fun StatusArea(phase: DataPhase, compact: Boolean, reduceMotion: Boolean) {
         modifier = Modifier.fillMaxWidth()
     ) { p ->
         when (p) {
-            is DataPhase.Searching -> StatusRow(
+            is DataPhase.Idle -> StatusRow(
+                tint = Color(0xFF9DB2D6),
+                title = config.labelIdle,
+                description = config.labelIdleHint
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = null,
+                    tint = Color(0xFF9DB2D6),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            is DataPhase.Validating -> StatusRow(
                 tint = config.accent,
-                title = config.labelSearching,
+                title = config.labelValidating,
                 description = null
             ) {
                 SearchingIndicator(tint = config.accent)
@@ -164,7 +178,7 @@ private fun StatusRow(
     }
 }
 
-/** Arco duplo girando com pulso de escala — indicador "procurando". */
+/** Arco duplo girando com pulso de escala — indicador "validando". */
 @Composable
 private fun SearchingIndicator(tint: Color) {
     val transition = rememberInfiniteTransition(label = "searching")

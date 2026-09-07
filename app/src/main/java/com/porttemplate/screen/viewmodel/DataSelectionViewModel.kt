@@ -11,11 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.porttemplate.screen.config.PortBranding
 import com.porttemplate.screen.data.GameDataScanner
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -23,7 +21,11 @@ import kotlinx.coroutines.withContext
  * ViewModel da tela de seleção de dados — arquitetura estado/UI separada:
  *
  *   SAF (Activity)  ──▶  onFolderPicked()  ──▶  validação em IO  ──▶  UiState
- *   SharedPreferences (pasta persistida)  ──▶  restoreSavedFolder()  ──▶  UiState
+ *   SharedPreferences (pasta persistida)  ──▶  restauração silenciosa  ──▶  UiState
+ *
+ * O app abre SEMPRE em [DataPhase.Idle]: nada é procurado automaticamente.
+ * A pasta persistida de uma sessão anterior é revalidada silenciosamente
+ * (sem tela de "procurando"), apenas para restaurar o estado "pronto".
  *
  * A UI nunca toca no ContentResolver: ela apenas renderiza [uiState] e emite
  * eventos. Trocar Compose por Views não muda nada aqui.
@@ -43,36 +45,18 @@ class DataSelectionViewModel(application: Application) : AndroidViewModel(applic
     var onLaunchGame: ((folderUri: String, fileName: String) -> Unit)? = null
 
     init {
-        _uiState.update {
-            it.copy(
-                particlesEnabled = prefs.getBoolean(KEY_PARTICLES, true),
-                reduceMotionOverride = prefs.getBoolean(KEY_REDUCE_MOTION, false)
-            )
-        }
         restoreSavedFolder()
     }
 
     /**
-     * Fluxo de boot:
-     *  - pasta persistida existe  → fase Searching durante a validação em IO;
-     *  - pasta persistida revogada/inválida → NotFound (usuário escolhe outra);
-     *  - nenhuma pasta salva      → Searching por um instante (a detecção
-     *    automática "olha ao redor") e depois NotFound, para que a animação
-     *    de entrada mostre os três estados do ciclo de vida.
+     * Fluxo de boot (sem busca automática):
+     *  - pasta persistida existe  → validação silenciosa rápida (sem estado
+     *    de "procurando" visível prolongado);
+     *  - pasta persistida revogada/inválida → Idle (usuário escolhe outra);
+     *  - nenhuma pasta salva      → Idle, direto ao ponto.
      */
     private fun restoreSavedFolder() {
-        val savedUri = prefs.getString(KEY_FOLDER_URI, null)
-        if (savedUri == null) {
-            viewModelScope.launch {
-                delay(1500)
-                _uiState.update { st ->
-                    if (st.phase is DataPhase.Searching && !st.validating) {
-                        st.copy(phase = DataPhase.NotFound)
-                    } else st
-                }
-            }
-            return
-        }
+        val savedUri = prefs.getString(KEY_FOLDER_URI, null) ?: return
         validateFolder(Uri.parse(savedUri))
     }
 
@@ -86,7 +70,7 @@ class DataSelectionViewModel(application: Application) : AndroidViewModel(applic
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (_: SecurityException) {
-            _uiState.update { it.copy(phase = DataPhase.PermissionError, validating = false) }
+            _uiState.value = DataSelectionUiState(DataPhase.PermissionError)
             return
         }
         prefs.edit().putString(KEY_FOLDER_URI, treeUri.toString()).apply()
@@ -100,7 +84,7 @@ class DataSelectionViewModel(application: Application) : AndroidViewModel(applic
 
     /** Valida a pasta em Dispatchers.IO (listFiles em SAF é I/O de verdade). */
     private fun validateFolder(uri: Uri) {
-        _uiState.update { it.copy(validating = true, phase = DataPhase.Searching) }
+        _uiState.value = DataSelectionUiState(DataPhase.Validating)
         viewModelScope.launch {
             val fileName = withContext(Dispatchers.IO) {
                 runCatching {
@@ -109,17 +93,32 @@ class DataSelectionViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }.getOrNull()
             }
-            _uiState.update { st ->
-                st.copy(
-                    validating = false,
-                    phase = if (fileName != null) {
-                        DataPhase.Found(folderUri = uri.toString(), fileName = fileName)
-                    } else {
-                        DataPhase.NotFound
-                    }
-                )
+            _uiState.value = if (fileName != null) {
+                DataSelectionUiState(DataPhase.Found(folderUri = uri.toString(), fileName = fileName))
+            } else {
+                DataSelectionUiState(DataPhase.NotFound)
             }
         }
+    }
+
+    /**
+     * Apaga a pasta persistida (usado pela tela de Configurações): libera a
+     * permissão persistida, limpa o prefs e volta ao estado inicial.
+     */
+    fun clearSavedSelection() {
+        val app = getApplication<Application>()
+        prefs.getString(KEY_FOLDER_URI, null)?.let { saved ->
+            try {
+                app.contentResolver.releasePersistableUriPermission(
+                    Uri.parse(saved),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+                // Permissão já revogada pelo sistema — nada a fazer.
+            }
+        }
+        prefs.edit().remove(KEY_FOLDER_URI).apply()
+        _uiState.value = DataSelectionUiState(DataPhase.Idle)
     }
 
     /** Clique no botão primário com dados prontos — entrega ao motor do port. */
@@ -138,24 +137,8 @@ class DataSelectionViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    // ------------------------------------------------------------------
-    // Preferências do diálogo de ajustes (persistidas)
-    // ------------------------------------------------------------------
-
-    fun setParticlesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_PARTICLES, enabled).apply()
-        _uiState.update { it.copy(particlesEnabled = enabled) }
-    }
-
-    fun setReduceMotionOverride(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_REDUCE_MOTION, enabled).apply()
-        _uiState.update { it.copy(reduceMotionOverride = enabled) }
-    }
-
     private companion object {
         const val PREFS_NAME = "port_screen_prefs"
         const val KEY_FOLDER_URI = "data_folder_uri"
-        const val KEY_PARTICLES = "particles_enabled"
-        const val KEY_REDUCE_MOTION = "reduce_motion"
     }
 }

@@ -1,13 +1,20 @@
 package com.porttemplate.screen.viewmodel
 
 /**
- * Fases da detecção de dados do jogo. Cada fase tem visual, cor, ícone e
+ * Fases do fluxo de dados do jogo. Cada fase tem visual, cor, ícone e
  * microanimação próprios na [com.porttemplate.screen.ui.components.StatusArea].
+ *
+ * O template NÃO procura nada automaticamente: o app abre direto em [Idle]
+ * e só valida quando o usuário escolhe uma pasta (ou ao restaurar silenciosamente
+ * uma pasta persistida de sessão anterior).
  */
 sealed interface DataPhase {
 
-    /** Detecção automática em andamento (validando pasta salva anteriormente). */
-    data object Searching : DataPhase
+    /** Estado inicial: nenhum dado selecionado — apenas aguarda o usuário. */
+    data object Idle : DataPhase
+
+    /** Validação em andamento (pasta recém-escolhida ou restaurada). */
+    data object Validating : DataPhase
 
     /** Nenhuma pasta válida / nenhum arquivo esperado encontrado. */
     data object NotFound : DataPhase
@@ -27,11 +34,5 @@ sealed interface DataPhase {
  * a tela é uma função pura deste estado.
  */
 data class DataSelectionUiState(
-    val phase: DataPhase = DataPhase.Searching,
-    /** Botão primário mostra spinner enquanto a pasta recém-escolhida é validada. */
-    val validating: Boolean = false,
-    /** Preferência do usuário: desligar partículas (persistida). */
-    val particlesEnabled: Boolean = true,
-    /** Preferência do usuário: forçar modo "reduzir movimento" (persistida). */
-    val reduceMotionOverride: Boolean = false,
+    val phase: DataPhase = DataPhase.Idle,
 )
