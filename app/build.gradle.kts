@@ -65,6 +65,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
+    // Ícones completos (Folder, ErrorOutline etc.) — core tem só o subconjunto básico
+    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // ViewModel + ciclo de vida Compose

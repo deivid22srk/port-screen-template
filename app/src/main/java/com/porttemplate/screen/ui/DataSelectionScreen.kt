@@ -70,8 +70,6 @@ fun DataSelectionRoute(viewModel: DataSelectionViewModel = viewModel()) {
     }
     val reduceMotion = systemReducedMotion || state.reduceMotionOverride
 
-    var settingsOpen by remember { mutableStateOf(false) }
-
     DataSelectionScreen(
         state = state,
         reduceMotion = reduceMotion,
@@ -107,6 +105,7 @@ fun DataSelectionScreen(
     onReduceMotionOverride: (Boolean) -> Unit,
 ) {
     val config = PortBranding.config
+    var settingsOpen by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         Modifier
