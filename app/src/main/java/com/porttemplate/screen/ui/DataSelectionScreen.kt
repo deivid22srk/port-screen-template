@@ -77,8 +77,6 @@ fun DataSelectionRoute(viewModel: DataSelectionViewModel = viewModel()) {
             if (state.phase is DataPhase.Found) viewModel.onStartGame() else folderPicker.launch(null)
         },
         onSelectFolder = { folderPicker.launch(null) },
-        onOpenSettings = { settingsOpen = true },
-        onDismissSettings = { settingsOpen = false },
         onParticlesEnabled = viewModel::setParticlesEnabled,
         onReduceMotionOverride = viewModel::setReduceMotionOverride
     )
@@ -99,8 +97,6 @@ fun DataSelectionScreen(
     reduceMotion: Boolean,
     onSelectData: () -> Unit,
     onSelectFolder: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onDismissSettings: () -> Unit,
     onParticlesEnabled: (Boolean) -> Unit,
     onReduceMotionOverride: (Boolean) -> Unit,
 ) {
@@ -171,7 +167,7 @@ fun DataSelectionScreen(
                 } else {
                     Spacer(Modifier.size(48.dp))
                 }
-                SettingsButton(onClick = onOpenSettings)
+                SettingsButton(onClick = { settingsOpen = true })
             }
         }
 
@@ -184,7 +180,7 @@ fun DataSelectionScreen(
                 reduceMotionEnabled = state.reduceMotionOverride,
                 onParticlesEnabled = onParticlesEnabled,
                 onReduceMotionEnabled = onReduceMotionOverride,
-                onDismiss = onDismissSettings
+                onDismiss = { settingsOpen = false }
             )
         }
     }
