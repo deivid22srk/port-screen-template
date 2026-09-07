@@ -181,6 +181,15 @@ data class PortBrandingConfig(
     /** Estado de status: permissão de leitura negada/revogada. */
     val labelPermissionError: String,
 
+    /** Botão de fechar do diálogo de créditos. */
+    val labelClose: String,
+
+    /** Rótulo do toggle de partículas (tela de Configurações → Efeitos). */
+    val labelToggleParticles: String,
+
+    /** Rótulo do toggle "reduzir movimento" (tela de Configurações → Efeitos). */
+    val labelToggleMotion: String,
+
     // ------------------------------------------------------------------
     // TELA DE CONFIGURAÇÕES DEDICADA (engrenagem navega para ela)
     // ------------------------------------------------------------------
@@ -294,6 +303,9 @@ object PortBranding {
         labelFound = "Dados prontos",
         labelFoundFile = "Pronto para iniciar: %s",
         labelPermissionError = "Permissão negada",
+        labelClose = "Fechar",
+        labelToggleParticles = "Partículas ambiente",
+        labelToggleMotion = "Reduzir movimento",
 
         // ---- Tela de configurações ----------------------------------------
         labelSettingsTitle = "Configurações",
